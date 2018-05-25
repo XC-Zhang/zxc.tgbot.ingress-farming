@@ -1,0 +1,11 @@
+{
+    "include": [
+        "src/**/*"
+    ],
+    "compilerOptions": {
+        "module": "commonjs",
+        "noImplicitAny": true,
+        "removeComments": true,
+        "target": "es2017"
+    }
+}
