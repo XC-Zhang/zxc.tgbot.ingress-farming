@@ -3,3 +3,4 @@ dist
 *.tar.gz
 config.js
 config.ts
+.vscode/launch.json
