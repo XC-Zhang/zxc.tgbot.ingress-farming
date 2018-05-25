@@ -1,0 +1,9 @@
+{
+  "name": "zxc.tgbot.ingress-farm",
+  "version": "1.0.0",
+  "description": "A telegram bot to vote for Ingress farming time and place.",
+  "main": "index.js",
+  "author": "xc-zhang",
+  "license": "MIT",
+  "private": true
+}
