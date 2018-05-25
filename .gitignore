@@ -1,4 +1,5 @@
 node_modules
+dist
 *.tar.gz
 config.js
 config.ts
