@@ -5,5 +5,10 @@
   "main": "index.js",
   "author": "xc-zhang",
   "license": "MIT",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-gzip": "^1.4.2",
+    "gulp-tar": "^2.1.0"
+  }
 }
