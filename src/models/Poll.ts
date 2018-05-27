@@ -1,7 +1,8 @@
+import { ObjectId } from "mongodb";
 export interface Poll {
+    _id: ObjectId;
     active: boolean;
     creationTime: Date;
-    options: string[];
-    title?: string;
+    title: string;
     userId: number;
 }
