@@ -1,6 +1,6 @@
 import * as TelegramBot from "node-telegram-bot-api";
-import { MongoClient } from "mongodb";
-import { Poll, PollBeingCreated, PollStatus, PollOption } from "./models/index";
+import { MongoClient, FilterQuery, ObjectId } from "mongodb";
+import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage } from "./models/index";
 import { config } from "./config";
 const token = config.telegramBot.token;
 const mongoConfig = config.mongodb;
@@ -14,21 +14,42 @@ bot.onText(/\/start/, async message => {
 });
 bot.onText(/\/done/, onDone);
 bot.onText(/^(?!\/(start|done)).+$/s, onText);
+bot.on("chosen_inline_result", onChosenInlineResult);
 bot.on("callback_query", onCallbackQuery);
 
 async function onInlineQuery(message: TelegramBot.InlineQuery) {
-    const client = await MongoClient.connect(mongoConfig.url);
-    const polls = await client.db(mongoConfig.dbname).collection<Poll>("polls").find({
+    let query: FilterQuery<Poll> = {
         userId: message.from.id,
         active: true
-    }).limit(50).sort({ "creationTime": -1 }).toArray();
+    };
+    if (message.query) {
+        query = {
+            userId: message.from.id,
+            active: true,
+            $text: {
+                $search: message.query
+            }
+        };
+    }
+    const client = await MongoClient.connect(mongoConfig.url);
+    const collection = client.db(mongoConfig.dbname).collection<Poll>("polls");
+    await collection.createIndex({
+        title: "text"
+    });
+    const polls = await collection.find(query).limit(50).sort({ "creationTime": -1 }).toArray();
     const results = polls.map(poll => ({
         id: poll._id.toHexString(),
         type: "article",
         title: poll.title,
         input_message_content: {
             message_text: poll.title
-        } as TelegramBot.InputTextMessageContent
+        } as TelegramBot.InputTextMessageContent,
+        reply_markup: {
+            inline_keyboard: [[{
+                text: "Loading options...",
+                callback_data: "Loading options..."
+            }]]
+        }
     }) as TelegramBot.InlineQueryResultArticle);
     console.debug(`User ${message.from.id} is querying. Found ${results.length} result(s).`);
     await bot.answerInlineQuery(message.id, results, {
@@ -145,7 +166,8 @@ async function onText(message: TelegramBot.Message) {
         case PollStatus.WaitForOptions:
             const option: PollOption = {
                 pollId: poll._id,
-                text: message.text
+                text: message.text,
+                users: []
             };
             await db.collection<PollOption>("pollOptions").insertOne(option);
             await client.close();
@@ -160,5 +182,114 @@ async function onText(message: TelegramBot.Message) {
     }
 }
 
+async function onChosenInlineResult(chosenInlineResult: TelegramBot.ChosenInlineResult) {
+    const id = ObjectId.createFromHexString(chosenInlineResult.result_id);
+    const client = await MongoClient.connect(mongoConfig.url);
+    const db = client.db(mongoConfig.dbname);
+    const poll = await db.collection<Poll>("polls").findOne({
+        _id: id
+    });
+    if (poll === null) {
+        await client.close();
+        return;
+    }
+    await db.collection<SentInlineMessage>("sentInlineMessages").insertOne({
+        pollId: id,
+        inlineMessageId: chosenInlineResult.inline_message_id
+    } as SentInlineMessage);
+    const options = await db.collection<PollOption>("pollOptions").find({
+        pollId: id
+    }).toArray();
+    await client.close();
+    await editInlineMessage(poll, options, chosenInlineResult.inline_message_id);
+}
+
 async function onCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
+    let optionId: ObjectId;
+    try {
+        optionId = ObjectId.createFromHexString(callbackQuery.data);
+    } catch (err) {
+        await bot.answerCallbackQuery({
+            callback_query_id: callbackQuery.id
+        });
+        return;
+    }
+    const client = await MongoClient.connect(mongoConfig.url);
+    const db = client.db(mongoConfig.dbname);
+    const optionCollection = db.collection<PollOption>("pollOptions");
+    const option = await optionCollection.findOne({
+        _id: optionId
+    });
+    if (option === null) {
+        await client.close();
+        await bot.answerCallbackQuery({
+            callback_query_id: callbackQuery.id
+        });
+        return;
+    }
+    const messages = await db.collection<SentInlineMessage>("sentInlineMessages").find({
+        pollId: option.pollId
+    }).toArray();
+    if (messages.every(message => message.inlineMessageId !== callbackQuery.inline_message_id)) {
+        await client.close();
+        await bot.answerCallbackQuery({
+            callback_query_id: callbackQuery.id
+        });
+        return;
+    }
+    const poll = await db.collection<Poll>("polls").findOne({
+        _id: option.pollId
+    });
+    if (poll === null) {
+        await client.close();
+        await bot.answerCallbackQuery({
+            callback_query_id: callbackQuery.id
+        });
+        return;
+    }
+    if (option.users.indexOf(callbackQuery.from.id) === -1) {
+        // User voted
+        await optionCollection.updateOne({
+            _id: option._id
+        }, {
+            $push: { users: callbackQuery.from.id }
+        });
+        await bot.answerCallbackQuery({
+            callback_query_id: callbackQuery.id,
+            text: `You voted for ${option.text}`
+        });
+    } else {
+        // User took the vote.
+        await optionCollection.updateOne({
+            _id: option._id
+        }, {
+            $pull: { users: callbackQuery.from.id }
+        });
+        await bot.answerCallbackQuery({
+            callback_query_id: callbackQuery.id,
+            text: `You took the vote for ${option.text}`
+        });
+    }
+    const options = await optionCollection.find({ 
+        pollId: option.pollId 
+    }).toArray();
+    await client.close();
+    // Update all sent inline messages.
+    await Promise.all(messages.map(message => editInlineMessage(poll, options, message.inlineMessageId)));
+}
+
+function getPollText(poll: Poll, options: PollOption[]) {
+    return [poll.title, "", ...options.map(option => [`[${option.users.length}] ${option.text}`, ...option.users.map(user => `- ${user}`), ""].join("\r\n"))].join("\r\n");
+}
+
+function editInlineMessage(poll: Poll, options: PollOption[], inlineMessageId: string) {
+    return bot.editMessageText(getPollText(poll, options), {
+        inline_message_id: inlineMessageId,
+        reply_markup: {
+            inline_keyboard: options.map(option => [{
+                text: `[${option.users.length}] ${option.text}`,
+                callback_data: option._id.toHexString()
+            } as TelegramBot.InlineKeyboardButton])
+        }
+    });    
 }
