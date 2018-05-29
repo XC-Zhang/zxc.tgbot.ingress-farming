@@ -1,6 +1,6 @@
 import * as TelegramBot from "node-telegram-bot-api";
-import { MongoClient, FilterQuery, ObjectId } from "mongodb";
-import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage } from "./models/index";
+import { MongoClient, FilterQuery, ObjectId, Collection } from "mongodb";
+import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser } from "./models/index";
 import { config } from "./config";
 const token = config.telegramBot.token;
 const mongoConfig = config.mongodb;
@@ -200,8 +200,14 @@ async function onChosenInlineResult(chosenInlineResult: TelegramBot.ChosenInline
     const options = await db.collection<PollOption>("pollOptions").find({
         pollId: id
     }).toArray();
+    const userIds = await db.collection<PollOption>("pollOptions").distinct("users", {
+        pollId: id
+    }) as number[];
+    const users = await db.collection<TelegramUser>("telegramUsers").find({
+        _id: { $in: userIds }
+    }).toArray();
     await client.close();
-    await editInlineMessage(poll, options, chosenInlineResult.inline_message_id);
+    await editInlineMessage(poll, options, users, chosenInlineResult.inline_message_id);
 }
 
 async function onCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
@@ -247,6 +253,13 @@ async function onCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
         });
         return;
     }
+    await db.collection<TelegramUser>("telegramUsers").updateOne({
+        _id: callbackQuery.from.id
+    }, {
+        $set: { firstName: callbackQuery.from.first_name }
+    }, {
+        upsert: true
+    });
     if (option.users.indexOf(callbackQuery.from.id) === -1) {
         // User voted
         await optionCollection.updateOne({
@@ -273,17 +286,40 @@ async function onCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
     const options = await optionCollection.find({ 
         pollId: option.pollId 
     }).toArray();
+    const userIds = await optionCollection.distinct("users", {
+        pollId: option.pollId
+    }) as number[];
+    const users = await db.collection<TelegramUser>("telegramUsers").find({
+        _id: { $in: userIds }
+    }).toArray();
     await client.close();
     // Update all sent inline messages.
-    await Promise.all(messages.map(message => editInlineMessage(poll, options, message.inlineMessageId)));
+    await Promise.all(messages.map(message => editInlineMessage(poll, options, users, message.inlineMessageId)));
 }
 
-function getPollText(poll: Poll, options: PollOption[]) {
-    return [poll.title, "", ...options.map(option => [`[${option.users.length}] ${option.text}`, ...option.users.map(user => `- ${user}`), ""].join("\r\n"))].join("\r\n");
+function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
+    return [
+        poll.title, 
+        "", 
+        ...options.map(option => [
+            `[${option.users.length}] ${option.text}`, 
+            ...joinPollOptionWithUsers(option, users),
+            ""
+        ].join("\r\n"))
+    ].join("\r\n");
 }
 
-function editInlineMessage(poll: Poll, options: PollOption[], inlineMessageId: string) {
-    return bot.editMessageText(getPollText(poll, options), {
+function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
+    return innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName}`);
+}
+
+function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner[], outerKeySelector: (outer: TOuter) => TKey, innerKeySelector: (inner: TInner) => TKey, resultSelector: (a: TOuter, b: TInner) => TResult) {
+    const index = inner.reduce((map, current) => map.set(innerKeySelector(current), current), new Map<TKey, TInner>());
+    return outer.map(element => resultSelector(element, index.get(outerKeySelector(element))));
+}
+
+function editInlineMessage(poll: Poll, options: PollOption[], users: TelegramUser[], inlineMessageId: string) {
+    return bot.editMessageText(getPollText(poll, options, users), {
         inline_message_id: inlineMessageId,
         reply_markup: {
             inline_keyboard: options.map(option => [{
