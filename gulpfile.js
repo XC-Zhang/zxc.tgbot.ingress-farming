@@ -17,7 +17,7 @@ gulp.task("release", function () {
         "./yarn.lock",
         "./dist/**"
     ]
-    gulp.src(globs)
+    gulp.src(globs, { base: "." })
         .pipe(tar("release.tar"))
         .pipe(gzip())
         .pipe(gulp.dest("."));
