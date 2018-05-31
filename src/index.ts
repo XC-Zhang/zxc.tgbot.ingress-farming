@@ -276,11 +276,17 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
     return [
         poll.title, 
         "", 
-        ...options.map(option => [
-            `[${option.users.length}] ${option.text}`, 
-            ...joinPollOptionWithUsers(option, users),
-            ""
-        ].join("\r\n"))
+        ...options.map(option => {
+            let title = `(${option.users.length}) ${option.text}`;
+            if (option.users.length >= 8) {
+                title = `*${title}*`;
+            }
+            return [
+                title, 
+                ...joinPollOptionWithUsers(option, users),
+                ""
+            ].join("\r\n");
+        })
     ].join("\r\n");
 }
 
@@ -296,9 +302,10 @@ function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner
 function editInlineMessage(poll: Poll, options: PollOption[], users: TelegramUser[], inlineMessageId: string) {
     return bot.editMessageText(getPollText(poll, options, users), {
         inline_message_id: inlineMessageId,
+        parse_mode: "Markdown",
         reply_markup: {
             inline_keyboard: options.map(option => [{
-                text: `[${option.users.length}] ${option.text}`,
+                text: `(${option.users.length}) ${option.text}`,
                 callback_data: option._id.toHexString()
             } as TelegramBot.InlineKeyboardButton])
         }
