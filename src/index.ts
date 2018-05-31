@@ -256,7 +256,10 @@ async function onCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
     await db.collection<TelegramUser>("telegramUsers").updateOne({
         _id: callbackQuery.from.id
     }, {
-        $set: { firstName: callbackQuery.from.first_name }
+        $set: { 
+            firstName: callbackQuery.from.first_name,
+            lastName: callbackQuery.from.last_name
+        }
     }, {
         upsert: true
     });
@@ -310,7 +313,7 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
 }
 
 function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
-    return innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName}`);
+    return innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`);
 }
 
 function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner[], outerKeySelector: (outer: TOuter) => TKey, innerKeySelector: (inner: TInner) => TKey, resultSelector: (a: TOuter, b: TInner) => TResult) {
