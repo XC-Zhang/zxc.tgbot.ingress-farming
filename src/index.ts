@@ -253,7 +253,7 @@ MongoClient.connect(mongoConfig.url).then(client => {
             });
             await bot.answerCallbackQuery({
                 callback_query_id: callbackQuery.id,
-                text: `You took the vote for ${option.text}`
+                text: `You took the vote for ${option.text} back`
             });
         }
         const options = await optionCollection.find({ 
