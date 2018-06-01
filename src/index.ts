@@ -292,10 +292,14 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
 
 function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
     if(option.text.startsWith("##")){
-        return "";
+        return [];
     }
     if(option.text.startsWith("#")){
-        return ["- "+innerJoin(option.users, users, user => user, user => user._id, (a, b) => `${b.firstName}`).join(", ")];
+        const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `${b.firstName}`);
+        if(userList.length > 0){
+            return ["- " + userList.join(", ")];
+        }
+        return [];
     }
     return innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`);
 }
