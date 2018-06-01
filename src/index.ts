@@ -1,5 +1,5 @@
 import * as TelegramBot from "node-telegram-bot-api";
-import { MongoClient, FilterQuery, ObjectId, Collection, MongoError } from "mongodb";
+import { MongoClient, FilterQuery, ObjectId, Collection, MongoError, MongoClientOptions } from "mongodb";
 import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser } from "./models/index";
 import { config } from "./config";
 const token = config.telegramBot.token;
@@ -7,7 +7,7 @@ const mongoConfig = config.mongodb;
 const bot = new TelegramBot(token, {
     polling: true
 });
-MongoClient.connect(mongoConfig.url).then(client => {
+MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true }).then(client => {
     bot.on("inline_query", onInlineQuery);
     bot.onText(/\/start/, async message => {
         await createNewPoll(message.from.id);
@@ -266,7 +266,13 @@ MongoClient.connect(mongoConfig.url).then(client => {
             _id: { $in: userIds }
         }).toArray();
         // Update all sent inline messages.
-        await Promise.all(messages.map(message => editInlineMessage(poll, options, users, message.inlineMessageId)));
+        await Promise.all(messages.map(message => editInlineMessage(poll, options, users, message.inlineMessageId))).catch((e)=>{
+            if(e.message == "ETELEGRAM: 400 Bad Request: message is not modified"){
+                console.info(e.message);
+            }else{
+                console.error(e);
+            }
+        });
     }
 }, (error: MongoError) => {
     console.error(error);
@@ -291,7 +297,17 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
 }
 
 function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
-    return innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`);
+    if(option.text.startsWith("##")){
+        return [];
+    }
+    const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`)
+    if(option.text.startsWith("#")){
+        if(userList.length > 0){
+            return ["- " + userList.join(", ")];
+        }
+        return [];
+    }
+    return userList;
 }
 
 function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner[], outerKeySelector: (outer: TOuter) => TKey, innerKeySelector: (inner: TInner) => TKey, resultSelector: (a: TOuter, b: TInner) => TResult) {
