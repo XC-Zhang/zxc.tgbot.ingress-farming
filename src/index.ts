@@ -1,5 +1,5 @@
 import * as TelegramBot from "node-telegram-bot-api";
-import { MongoClient, FilterQuery, ObjectId, Collection, MongoError } from "mongodb";
+import { MongoClient, FilterQuery, ObjectId, Collection, MongoError, MongoClientOptions } from "mongodb";
 import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser } from "./models/index";
 import { config } from "./config";
 const token = config.telegramBot.token;
@@ -7,7 +7,7 @@ const mongoConfig = config.mongodb;
 const bot = new TelegramBot(token, {
     polling: true
 });
-MongoClient.connect(mongoConfig.url).then(client => {
+MongoClient.connect(mongoConfig.url, <MongoClientOptions>{useNewUrlParser: true}).then(client => {
     bot.on("inline_query", onInlineQuery);
     bot.onText(/\/start/, async message => {
         await createNewPoll(message.from.id);
