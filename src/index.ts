@@ -266,7 +266,13 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             _id: { $in: userIds }
         }).toArray();
         // Update all sent inline messages.
-        await Promise.all(messages.map(message => editInlineMessage(poll, options, users, message.inlineMessageId)));
+        await Promise.all(messages.map(message => editInlineMessage(poll, options, users, message.inlineMessageId))).catch((e)=>{
+            if(e.message == "ETELEGRAM: 400 Bad Request: message is not modified"){
+                console.info(e.message);
+            }else{
+                console.error(e);
+            }
+        });
     }
 }, (error: MongoError) => {
     console.error(error);
