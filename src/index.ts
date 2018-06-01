@@ -7,7 +7,7 @@ const mongoConfig = config.mongodb;
 const bot = new TelegramBot(token, {
     polling: true
 });
-MongoClient.connect(mongoConfig.url, <MongoClientOptions>{useNewUrlParser: true}).then(client => {
+MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true }).then(client => {
     bot.on("inline_query", onInlineQuery);
     bot.onText(/\/start/, async message => {
         await createNewPoll(message.from.id);
@@ -291,6 +291,12 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
 }
 
 function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
+    if(option.text.startsWith("##")){
+        return "";
+    }
+    if(option.text.startsWith("#")){
+        return ["- "+innerJoin(option.users, users, user => user, user => user._id, (a, b) => `${b.firstName}`).join(", ")];
+    }
     return innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`);
 }
 
