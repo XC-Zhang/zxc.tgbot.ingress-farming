@@ -294,14 +294,14 @@ function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
     if(option.text.startsWith("##")){
         return [];
     }
+    const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`)
     if(option.text.startsWith("#")){
-        const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `${b.firstName}`);
         if(userList.length > 0){
             return ["- " + userList.join(", ")];
         }
         return [];
     }
-    return innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`);
+    return userList;
 }
 
 function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner[], outerKeySelector: (outer: TOuter) => TKey, innerKeySelector: (inner: TInner) => TKey, resultSelector: (a: TOuter, b: TInner) => TResult) {
