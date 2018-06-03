@@ -238,7 +238,7 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             await optionCollection.updateOne({
                 _id: option._id
             }, {
-                $push: { users: callbackQuery.from.id }
+                $addToSet: { users: callbackQuery.from.id }
             });
             await bot.answerCallbackQuery({
                 callback_query_id: callbackQuery.id,
@@ -303,7 +303,7 @@ function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
     const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`)
     if(option.text.startsWith("#")){
         if(userList.length > 0){
-            return ["- " + userList.join(", ")];
+            return ["- " + userList.join(", ").replace("- ","")];
         }
         return [];
     }
