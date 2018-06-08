@@ -47,17 +47,17 @@
     "@types/events" "*"
     "@types/node" "*"
 
-"@types/node-telegram-bot-api@^0.28.3":
-  version "0.28.3"
-  resolved "https://registry.yarnpkg.com/@types/node-telegram-bot-api/-/node-telegram-bot-api-0.28.3.tgz#f0d9a95e15df53e47015d81c550bef9ca49ce9f4"
+"@types/node-telegram-bot-api@^0.30.1":
+  version "0.30.1"
+  resolved "https://registry.yarnpkg.com/@types/node-telegram-bot-api/-/node-telegram-bot-api-0.30.1.tgz#b12e26a2fc9678248efc79dfdffc515e28103af0"
   dependencies:
     "@types/events" "*"
     "@types/node" "*"
     "@types/request" "*"
 
 "@types/node@*":
-  version "10.1.2"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-10.1.2.tgz#1b928a0baa408fc8ae3ac012cc81375addc147c6"
+  version "10.3.2"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-10.3.2.tgz#3840ec6c12556fdda6e0e6d036df853101d732a4"
 
 "@types/request@*":
   version "2.47.0"

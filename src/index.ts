@@ -189,9 +189,7 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
         try {
             optionId = ObjectId.createFromHexString(callbackQuery.data);
         } catch (err) {
-            await bot.answerCallbackQuery({
-                callback_query_id: callbackQuery.id
-            });
+            await bot.answerCallbackQuery(callbackQuery.id);
             return;
         }
         const db = client.db(mongoConfig.dbname);
@@ -200,27 +198,21 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             _id: optionId
         });
         if (option === null) {
-            await bot.answerCallbackQuery({
-                callback_query_id: callbackQuery.id
-            });
+            await bot.answerCallbackQuery(callbackQuery.id);
             return;
         }
         const messages = await db.collection<SentInlineMessage>("sentInlineMessages").find({
             pollId: option.pollId
         }).toArray();
         if (messages.every(message => message.inlineMessageId !== callbackQuery.inline_message_id)) {
-            await bot.answerCallbackQuery({
-                callback_query_id: callbackQuery.id
-            });
+            await bot.answerCallbackQuery(callbackQuery.id);
             return;
         }
         const poll = await db.collection<Poll>("polls").findOne({
             _id: option.pollId
         });
         if (poll === null) {
-            await bot.answerCallbackQuery({
-                callback_query_id: callbackQuery.id
-            });
+            await bot.answerCallbackQuery(callbackQuery.id);
             return;
         }
         await db.collection<TelegramUser>("telegramUsers").updateOne({
@@ -240,8 +232,7 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             }, {
                 $addToSet: { users: callbackQuery.from.id }
             });
-            await bot.answerCallbackQuery({
-                callback_query_id: callbackQuery.id,
+            await bot.answerCallbackQuery(callbackQuery.id, {
                 text: `You voted for ${option.text}`
             });
         } else {
@@ -251,8 +242,7 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             }, {
                 $pull: { users: callbackQuery.from.id }
             });
-            await bot.answerCallbackQuery({
-                callback_query_id: callbackQuery.id,
+            await bot.answerCallbackQuery(callbackQuery.id, {
                 text: `You took the vote for ${option.text} back`
             });
         }
@@ -325,7 +315,7 @@ function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner
 function editInlineMessage(poll: Poll, options: PollOption[], users: TelegramUser[], inlineMessageId: string) {
     return bot.editMessageText(getPollText(poll, options, users), {
         inline_message_id: inlineMessageId,
-        parse_mode: "Html",
+        parse_mode: "HTML",
         reply_markup: {
             inline_keyboard: options.map(option => [{
                 text: `(${option.users.length}) ${option.text}`,

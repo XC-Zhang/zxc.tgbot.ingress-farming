@@ -8,7 +8,7 @@
   "private": true,
   "devDependencies": {
     "@types/mongodb": "^3.0.18",
-    "@types/node-telegram-bot-api": "^0.28.3",
+    "@types/node-telegram-bot-api": "^0.30.1",
     "gulp": "^3.9.1",
     "gulp-gzip": "^1.4.2",
     "gulp-sourcemaps": "^2.6.4",
