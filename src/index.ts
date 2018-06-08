@@ -280,7 +280,7 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
         escapeHTML(poll.title), 
         "", 
         ...options.map(option => {
-            let title = `(${option.users.length}) ${escape(option.text)}`;
+            let title = `(${option.users.length}) ${escapeHTML(option.text)}`;
             if (option.users.length >= 8) {
                 title = `<strong>${title}</strong>`;
             }
@@ -297,7 +297,7 @@ function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
     if(option.text.startsWith("##")){
         return [];
     }
-    const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${escape(b.firstName)} ${b.lastName ? escape(b.lastName) : ""}`)
+    const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${escapeHTML(b.firstName)} ${b.lastName ? escapeHTML(b.lastName) : ""}`)
     if(option.text.startsWith("#")){
         if(userList.length > 0){
             return ["- " + userList.join(", ").replace("- ","")];
