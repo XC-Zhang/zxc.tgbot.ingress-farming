@@ -282,7 +282,7 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
         ...options.map(option => {
             let title = `(${option.users.length}) ${escapeHTML(option.text)}`;
             if (option.users.length >= 8) {
-                title = `<strong>${title}</strong>`;
+                title = `${String.fromCodePoint(0x1F31F)} <strong>${title}</strong>`;
             }
             return [
                 title, 
