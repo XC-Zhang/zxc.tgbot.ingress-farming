@@ -277,15 +277,22 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
 }, (error: MongoError) => {
     console.error(error);
 });
+
+function escapeHTML(html: string) {
+    return html
+        .replace(/</, "&lt;")
+        .replace(/>/, "&gt;")
+        .replace(/&/, "&amp;");
+}
     
 function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
     return [
-        poll.title, 
+        escapeHTML(poll.title), 
         "", 
         ...options.map(option => {
-            let title = `(${option.users.length}) ${option.text}`;
+            let title = `(${option.users.length}) ${escape(option.text)}`;
             if (option.users.length >= 8) {
-                title = `*${title}*`;
+                title = `<strong>${title}</strong>`;
             }
             return [
                 title, 
@@ -300,7 +307,7 @@ function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
     if(option.text.startsWith("##")){
         return [];
     }
-    const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${b.firstName} ${b.lastName ? b.lastName : ""}`)
+    const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${escape(b.firstName)} ${b.lastName ? escape(b.lastName) : ""}`)
     if(option.text.startsWith("#")){
         if(userList.length > 0){
             return ["- " + userList.join(", ").replace("- ","")];
@@ -318,7 +325,7 @@ function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner
 function editInlineMessage(poll: Poll, options: PollOption[], users: TelegramUser[], inlineMessageId: string) {
     return bot.editMessageText(getPollText(poll, options, users), {
         inline_message_id: inlineMessageId,
-        parse_mode: "Markdown",
+        parse_mode: "Html",
         reply_markup: {
             inline_keyboard: options.map(option => [{
                 text: `(${option.users.length}) ${option.text}`,
