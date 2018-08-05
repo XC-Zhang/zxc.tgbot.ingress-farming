@@ -21,7 +21,8 @@ gulp.task("release", function () {
     const globs = [
         "./package.json",
         "./yarn.lock",
-        "./dist/**"
+        "./dist/**/*.js",
+        "!./dist/config.js"
     ]
     gulp.src(globs, { base: "." })
         .pipe(tar("release.tar"))
