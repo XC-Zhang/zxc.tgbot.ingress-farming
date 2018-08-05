@@ -256,13 +256,21 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             _id: { $in: userIds }
         }).toArray();
         // Update all sent inline messages.
-        await Promise.all(messages.map(message => editInlineMessage(poll, options, users, message.inlineMessageId))).catch((e)=>{
-            if(e.message == "ETELEGRAM: 400 Bad Request: message is not modified"){
-                console.info(e.message);
-            }else{
-                console.error(e);
+        await Promise.all(messages.map(message => editInlineMessage(poll, options, users, message.inlineMessageId).catch(reason => {
+            if (/MESSAGE_ID_INVALID/.test(reason.message)) {
+                // Message has been deleted from the telegram server.
+                // Removing the message from out database.
+                console.debug(`Received MESSAGE_ID_INVALID from telegram server. Removing corresponding database record. Poll ${message.pollId}; Inline Message ${message.inlineMessageId}`);
+                return db.collection<SentInlineMessage>("sentInlineMessages").deleteOne({
+                    pollId: message.pollId,
+                    inlineMessageId: message.inlineMessageId
+                });
+            } else if (reason.message === "ETELEGRAM: 400 Bad Request: message is not modified") {
+                console.info(reason.message);
+            } else {
+                console.error(reason);
             }
-        });
+        })));
     }
 }, (error: MongoError) => {
     console.error(error);
