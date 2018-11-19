@@ -36,7 +36,7 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
         await collection.createIndex({
             title: "text"
         });
-        const polls = await collection.find(query).limit(50).sort({ "creationTime": -1 }).toArray();
+        const polls = await collection.find(query).limit(10).sort({ "creationTime": -1 }).toArray();
         const results = polls.map(poll => ({
             id: poll._id.toHexString(),
             type: "article",
