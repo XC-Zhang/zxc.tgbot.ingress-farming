@@ -2,6 +2,7 @@ import * as TelegramBot from "node-telegram-bot-api";
 import { MongoClient, FilterQuery, ObjectId, Collection, MongoError, MongoClientOptions } from "mongodb";
 import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser } from "./models/index";
 import { config } from "./config";
+import { PollOptionTextFormatter } from "./services/PollOptionTextFormatter";
 const token = config.telegramBot.token;
 const mongoConfig = config.mongodb;
 const bot = new TelegramBot(token, {
@@ -138,15 +139,16 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
                         status: PollStatus.WaitForOptions
                     }
                 });
-                await bot.sendMessage(message.chat.id, "Okay. Now send me your vote options: ", {
-                    reply_to_message_id: message.message_id
+                await bot.sendMessage(message.chat.id, "Okay. Now send me your vote options. \r\nStyling syntax: `>[-][threshold] `. \r\n`[-]` for displaying users in one line. \r\n`[threshold]` for limiting users displayed. \r\nYou may add them at the start of the option text.", {
+                    reply_to_message_id: message.message_id,
+                    parse_mode: "Markdown"
                 });
                 break;
             case PollStatus.WaitForOptions:
                 const option: PollOption = {
                     pollId: poll._id,
-                    text: message.text,
-                    users: []
+                    users: [],
+                    ...PollOptionTextFormatter.deserialize(message.text)
                 };
                 await db.collection<PollOption>("pollOptions").insertOne(option);
                 await bot.sendMessage(message.chat.id, "Send me more options or /done to complete: ", {
@@ -288,31 +290,10 @@ function getPollText(poll: Poll, options: PollOption[], users: TelegramUser[]) {
         escapeHTML(poll.title), 
         "", 
         ...options.map(option => {
-            let title = `(${option.users.length}) ${escapeHTML(option.text)}`;
-            if (option.users.length >= 8) {
-                title = `${String.fromCodePoint(0x1F31F)} <strong>${title}</strong>`;
-            }
-            return [
-                title, 
-                ...joinPollOptionWithUsers(option, users),
-                ""
-            ].join("\r\n");
+            const joinedUsers = innerJoin(option.users, users, userId => userId, user => user._id, (a, b) => b);
+            return PollOptionTextFormatter.serialize(option.text, option.styles, joinedUsers);
         })
     ].join("\r\n");
-}
-
-function joinPollOptionWithUsers(option: PollOption, users: TelegramUser[]) {
-    if(option.text.startsWith("##")){
-        return [];
-    }
-    const userList = innerJoin(option.users, users, user => user, user => user._id, (a, b) => `- ${escapeHTML(b.firstName)} ${b.lastName ? escapeHTML(b.lastName) : ""}`)
-    if(option.text.startsWith("#")){
-        if(userList.length > 0){
-            return ["- " + userList.join(", ").replace("- ","")];
-        }
-        return [];
-    }
-    return userList;
 }
 
 function innerJoin<TOuter, TInner, TKey, TResult>(outer: TOuter[], inner: TInner[], outerKeySelector: (outer: TOuter) => TKey, innerKeySelector: (inner: TInner) => TKey, resultSelector: (a: TOuter, b: TInner) => TResult) {
