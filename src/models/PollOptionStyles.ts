@@ -10,3 +10,8 @@ export const DefaultPollOptionStyles: PollOptionStyles = {
     collapseThreshold: 10,
     seperator: CollapseSeperator
 }
+
+export const DetailPollOptionStyles: PollOptionStyles = {
+    collapseThreshold: 0,
+    seperator: ExpandingSeperator
+}

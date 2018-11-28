@@ -1,8 +1,11 @@
 import * as TelegramBot from "node-telegram-bot-api";
-import { MongoClient, FilterQuery, ObjectId, Collection, MongoError, MongoClientOptions } from "mongodb";
+import { MongoClient, ObjectId, MongoError, MongoClientOptions } from "mongodb";
 import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser } from "./models/index";
 import { config } from "./config";
 import { PollOptionTextFormatter } from "./services/PollOptionTextFormatter";
+import { PollQueryService } from "./services/PollQueryService";
+import { DetailPollOptionStyles } from "./models/PollOptionStyles";
+import { toLocalTimezoneString } from "./services/DateExtensions";
 const token = config.telegramBot.token;
 const mongoConfig = config.mongodb;
 const bot = new TelegramBot(token, {
@@ -15,29 +18,14 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
         await bot.sendMessage(message.chat.id, "You're going to create a poll. Please send me the question:") as TelegramBot.Message;
     });
     bot.onText(/\/done/, onDone);
-    bot.onText(/^(?!\/(start|done)).+$/s, onText);
+    bot.onText(/\/details/, onDetails);
+    bot.onText(/^(?!\/(start|done|details)).+$/s, onText);
     bot.on("chosen_inline_result", onChosenInlineResult);
     bot.on("callback_query", onCallbackQuery);
     
     async function onInlineQuery(message: TelegramBot.InlineQuery) {
-        let query: FilterQuery<Poll> = {
-            userId: message.from.id,
-            active: true
-        };
-        if (message.query) {
-            query = {
-                userId: message.from.id,
-                active: true,
-                $text: {
-                    $search: message.query
-                }
-            };
-        }
-        const collection = client.db(mongoConfig.dbname).collection<Poll>("polls");
-        await collection.createIndex({
-            title: "text"
-        });
-        const polls = await collection.find(query).limit(10).sort({ "creationTime": -1 }).toArray();
+        const database = client.db(mongoConfig.dbname);
+        const polls = await new PollQueryService(database).latest(message.from.id, true, message.query);
         const results = polls.map(poll => ({
             id: poll._id.toHexString(),
             type: "article",
@@ -119,6 +107,19 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
         }
     }
     
+    async function onDetails(message: TelegramBot.Message) {
+        const database = client.db(mongoConfig.dbname);
+        const polls = await new PollQueryService(database).latest(message.from.id);
+        await bot.sendMessage(message.chat.id, "Please choose one of the polls: ", {
+            reply_markup: {
+                inline_keyboard: polls.map(poll => ([{
+                    text: poll.title,
+                    callback_data: `onDetails:${poll._id.toHexString()}`
+                } as TelegramBot.InlineKeyboardButton]))
+            }
+        });
+    }
+
     async function onText(message: TelegramBot.Message) {
         const db = client.db(mongoConfig.dbname);
         const collection = db.collection<PollBeingCreated>("pollsBeingCreated");
@@ -187,13 +188,42 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
     }
     
     async function onCallbackQuery(callbackQuery: TelegramBot.CallbackQuery) {
-        let optionId: ObjectId;
-        try {
-            optionId = ObjectId.createFromHexString(callbackQuery.data);
-        } catch (err) {
+        const exec = /^(onDetails:)?([0-9a-fA-F]{24})$/.exec(callbackQuery.data);
+        if (exec === null) {
             await bot.answerCallbackQuery(callbackQuery.id);
             return;
         }
+        const objectId = ObjectId.createFromHexString(exec[2]);
+        if (exec[1]) {
+            // callback query from /details
+            await answerDetailsCallbackQuery(objectId, callbackQuery);
+        } else {
+            // callback query from choosing poll option
+            await answerChoosingPollOptionCallbackQuery(objectId, callbackQuery);
+        }
+    }
+
+    async function answerDetailsCallbackQuery(pollId: ObjectId, callbackQuery: TelegramBot.CallbackQuery) {
+        await bot.answerCallbackQuery(callbackQuery.id);
+        const database = client.db(mongoConfig.dbname);
+        const poll = await new PollQueryService(database).findOneById(pollId);
+        const optionText = poll.options.map(option => PollOptionTextFormatter.serialize(option.text, DetailPollOptionStyles, option.users));
+        const pollText = [
+            "This is a snapshot of the poll.",
+            "",
+            `Title: ${poll.title}`,
+            "",
+            `Created at: ${toLocalTimezoneString(poll.creationTime)}`,
+            "",
+            ...optionText
+        ].join("\r\n");
+        await bot.editMessageText(pollText, {
+            chat_id: callbackQuery.message.chat.id,
+            message_id: callbackQuery.message.message_id
+        });
+    }
+
+    async function answerChoosingPollOptionCallbackQuery(optionId: ObjectId, callbackQuery: TelegramBot.CallbackQuery) {
         const db = client.db(mongoConfig.dbname);
         const optionCollection = db.collection<PollOption>("pollOptions");
         const option = await optionCollection.findOne({
