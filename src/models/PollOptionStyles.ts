@@ -8,7 +8,7 @@ export interface PollOptionStyles {
 }
 
 export const DefaultPollOptionStyles: PollOptionStyles = {
-    collapseThreshold: 10,
+    collapseThreshold: 20,
     seperator: CollapseSeperator
 }
 
