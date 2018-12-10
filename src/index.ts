@@ -1,10 +1,9 @@
 import * as TelegramBot from "node-telegram-bot-api";
 import { MongoClient, ObjectId, MongoError, MongoClientOptions } from "mongodb";
-import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser, VoteLog } from "./models/index";
+import { DetailPollOptionStyles, Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser, VoteLog } from "./models/index";
 import { config } from "./config";
 import { PollOptionTextFormatter } from "./services/PollOptionTextFormatter";
 import { PollQueryService } from "./services/PollQueryService";
-import { DetailPollOptionStyles } from "./models/PollOptionStyles";
 import { toLocalTimezoneString } from "./services/DateExtensions";
 const token = config.telegramBot.token;
 const mongoConfig = config.mongodb;
