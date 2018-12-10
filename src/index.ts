@@ -1,6 +1,6 @@
 import * as TelegramBot from "node-telegram-bot-api";
 import { MongoClient, ObjectId, MongoError, MongoClientOptions } from "mongodb";
-import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser } from "./models/index";
+import { Poll, PollBeingCreated, PollStatus, PollOption, SentInlineMessage, TelegramUser, VoteLog } from "./models/index";
 import { config } from "./config";
 import { PollOptionTextFormatter } from "./services/PollOptionTextFormatter";
 import { PollQueryService } from "./services/PollQueryService";
@@ -268,6 +268,12 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             await bot.answerCallbackQuery(callbackQuery.id, {
                 text: `You voted for ${option.text}`
             });
+            await db.collection<VoteLog>("voteLogs").insertOne({
+                telegramUserId: callbackQuery.from.id,
+                dateTime: new Date(),
+                action: "Vote",
+                pollOptionId: option._id
+            } as VoteLog);
         } else {
             // User took the vote.
             await optionCollection.updateOne({
@@ -278,6 +284,12 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
             await bot.answerCallbackQuery(callbackQuery.id, {
                 text: `You took the vote for ${option.text} back`
             });
+            await db.collection<VoteLog>("voteLogs").insertOne({
+                telegramUserId: callbackQuery.from.id,
+                dateTime: new Date(),
+                action: "TakeVote",
+                pollOptionId: option._id
+            } as VoteLog);
         }
         const options = await optionCollection.find({ 
             pollId: option.pollId 
