@@ -42,8 +42,8 @@ export class PollOptionTextFormatter {
             const sliceEnd = styles.collapseThreshold === 0 ? users.length : styles.collapseThreshold;
             const slicedUsers = users.slice(0, sliceEnd);
             const usernames = slicedUsers.map(function (user) {
-                return `${HtmlFormatter.escapeHtml(user.firstName)} ${user.lastName ? HtmlFormatter.escapeHtml(user.lastName) : ""}`;
-            }).join(styles.seperator);
+                return `${HtmlFormatter.escapeHtml(user.firstName)} ${user.lastName ? HtmlFormatter.escapeHtml(user.lastName) : ""} ${styles.includeUserId ? '(' + getInlineMentionOfAUser(user) + ')' : ""}`;
+            }).join(`<b>${styles.seperator}</b>`);
             parts.splice(1, 0, `- ${usernames}`);
             if (users.length > sliceEnd) {
                 parts.splice(2, 0, `- and ${users.length - sliceEnd} more...`);
@@ -51,4 +51,8 @@ export class PollOptionTextFormatter {
         }
         return parts.join("\r\n");
     }
+}
+
+function getInlineMentionOfAUser(user: TelegramUser) {
+    return `<a href="tg://user?id=${user._id}">${user._id.toString()}</a>`;
 }

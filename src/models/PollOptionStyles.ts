@@ -4,6 +4,7 @@ export const ExpandingSeperator = "\r\n- ";
 export interface PollOptionStyles {
     collapseThreshold: number;
     seperator: string;
+    includeUserId?: boolean;
 }
 
 export const DefaultPollOptionStyles: PollOptionStyles = {
@@ -13,5 +14,6 @@ export const DefaultPollOptionStyles: PollOptionStyles = {
 
 export const DetailPollOptionStyles: PollOptionStyles = {
     collapseThreshold: 0,
-    seperator: ExpandingSeperator
+    seperator: ExpandingSeperator,
+    includeUserId: true
 }

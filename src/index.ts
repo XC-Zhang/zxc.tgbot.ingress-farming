@@ -219,7 +219,8 @@ MongoClient.connect(mongoConfig.url, <MongoClientOptions>{ useNewUrlParser: true
         ].join("\r\n");
         await bot.editMessageText(pollText, {
             chat_id: callbackQuery.message.chat.id,
-            message_id: callbackQuery.message.message_id
+            message_id: callbackQuery.message.message_id,
+            parse_mode: "HTML"
         });
     }
 
