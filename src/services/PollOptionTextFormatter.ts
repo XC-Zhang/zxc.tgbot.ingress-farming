@@ -5,7 +5,7 @@ import { TelegramUser } from "../models";
 // const StyleControlStartChar = ">";
 // const StyleControlSeperatorChar = "-";
 // const regex = new RegExp(`^${StyleControlStartChar}(${StyleControlSeperatorChar}?)(\\d+)\\s`);
-const regex = /^>(-?)(\d?)\s/;
+const regex = /^>(-?)(\d+?)\s/;
 
 export class PollOptionTextFormatter {
     static deserialize(text: string) {
